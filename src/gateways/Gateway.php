@@ -402,6 +402,7 @@ class Gateway extends BaseGateway
 			}
 
 			// deviceData
+			$data['deviceData'] = $form->deviceData;
 
 			if ($form->nonce) {
 				$data['paymentMethodNonce'] = $form->nonce;
@@ -713,7 +714,7 @@ class Gateway extends BaseGateway
 		return new SubscriptionResponse($response->subscription);
 	}
 
-	public function getSwitchPlansFormHtml(PlanInterface $originalPlan, PlanInterface $targetPlan): string 
+	public function getSwitchPlansFormHtml(PlanInterface $originalPlan, PlanInterface $targetPlan): string
 	{
 		$view = Craft::$app->getView();
 		$previousMode = $view->getTemplateMode();
@@ -816,7 +817,7 @@ class Gateway extends BaseGateway
 	/**
 	 * @inheritdoc
 	 */
-	public function getBillingIssueDescription(Subscription $subscription): string 
+	public function getBillingIssueDescription(Subscription $subscription): string
 	{
 		return '';
 	}
@@ -824,7 +825,7 @@ class Gateway extends BaseGateway
 	/**
 	 * @inheritdoc
 	 */
-	public function getBillingIssueResolveFormHtml(Subscription $subscription): string 
+	public function getBillingIssueResolveFormHtml(Subscription $subscription): string
 	{
 		throw new NotSupportedException();
 	}
@@ -997,8 +998,9 @@ class Gateway extends BaseGateway
 		$view->setTemplateMode(View::TEMPLATE_MODE_CP);
 
 		$view->registerJsFile(
-			'https://js.braintreegateway.com/web/dropin/1.21.0/js/dropin.min.js'
+			'https://js.braintreegateway.com/web/dropin/1.33.0/js/dropin.min.js'
 		);
+
 		$view->registerAssetBundle(DropinUiAsset::class);
 		$html = $view->renderTemplate(
 			'commerce-braintree/paymentForms/dropin-ui',

@@ -29,6 +29,7 @@ class Payment extends BasePaymentForm
      */
 	public $nonce;
 	public $token;
+    public $deviceData;
 	public $type;
 	public $firstName;
 	public $lastName;
