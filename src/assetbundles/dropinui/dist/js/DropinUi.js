@@ -24,6 +24,7 @@
 			var $form = $(this),
 				$token = $form.find('[name="gatewayToken"]'),
 				$nonce = $form.find('[name="nonce"]'),
+				$deviceDataInput = $form.find('[name="deviceData"]'),
 				amount = $form.find('[name="amount"]').val(),
 				currency = $form.find('[name="currency"]').val(),
 				email = $form.find('[name="email"]').val(),
@@ -98,6 +99,10 @@
 					options.threeDSecure = true;
 				}
 
+				options.dataCollector = true;
+
+				console.log(options);
+
 				braintree.dropin.create(options, function(err, dropinInstance) {
 					if (err) {
 						console.error(err);
@@ -143,7 +148,7 @@
 
 	function formSubmit(e) {
 		e.preventDefault();
-		//console.log(e)
+		var $deviceDataInput = e.currentTarget.querySelector('[name="deviceData"]');
 		var dropinInstance = e.data.dropinInstance,
 			$form = $(e.currentTarget),
 			threeDSecure = e.data.threeDSecure,
@@ -160,6 +165,11 @@
 				return;
 			}
 			//console.log(payload);
+
+			if(payload.deviceData && $deviceDataInput) {
+				$deviceDataInput.value = payload.deviceData;
+			}
+
 			if ((payload.liabilityShiftPossible && payload.liabilityShifted) || !payload.liabilityShiftPossible || payload.type !== 'CreditCard' || !threeDSecure) {
 				processing($submit);
 				$form.find('input[name=nonce]').val(payload.nonce);
