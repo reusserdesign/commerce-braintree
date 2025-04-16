@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Commerce Braintree plugin for Craft CMS 3.x
  *
@@ -8,18 +9,20 @@
  * @copyright Copyright (c) 2018 Kurious Agency
  */
 
-namespace kuriousagency\commerce\braintree\gateways;
+namespace webdna\commerce\braintree\gateways;
 
-use kuriousagency\commerce\braintree\Braintree as BT;
+use webdna\commerce\braintree\Braintree as BT;
 
-use kuriousagency\commerce\braintree\assetbundles\dropinui\DropinUiAsset;
-use kuriousagency\commerce\braintree\assetbundles\hostedfields\HostedFieldsAsset;
-use kuriousagency\commerce\braintree\models\Payment;
-use kuriousagency\commerce\braintree\models\CancelSubscription;
-use kuriousagency\commerce\braintree\models\Plan;
-use kuriousagency\commerce\braintree\models\SwitchPlans;
-use kuriousagency\commerce\braintree\responses\PaymentResponse;
-use kuriousagency\commerce\braintree\responses\SubscriptionResponse;
+use webdna\commerce\braintree\assetbundles\dropinui\DropinUiAsset;
+use webdna\commerce\braintree\assetbundles\hostedfields\HostedFieldsAsset;
+use webdna\commerce\braintree\assetbundles\expresscheckout\GooglePayAsset;
+use webdna\commerce\braintree\assetbundles\expresscheckout\ApplePayAsset;
+use webdna\commerce\braintree\models\Payment;
+use webdna\commerce\braintree\models\CancelSubscription;
+use webdna\commerce\braintree\models\Plan;
+use webdna\commerce\braintree\models\SwitchPlans;
+use webdna\commerce\braintree\responses\PaymentResponse;
+use webdna\commerce\braintree\responses\SubscriptionResponse;
 
 use Braintree;
 
@@ -46,6 +49,7 @@ use craft\commerce\models\subscriptions\SwitchPlansForm;
 use craft\commerce\Plugin as Commerce;
 use craft\commerce\records\Transaction as TransactionRecord;
 use craft\elements\User;
+use craft\helpers\App;
 use craft\helpers\DateTimeHelper;
 use craft\helpers\Json;
 use craft\helpers\StringHelper;
@@ -73,40 +77,44 @@ class Gateway extends BaseGateway
 	// Properties
 	// =========================================================================
 
-	public $apiUrl = '';
+	public string $apiUrl = '';
 
-	public $merchantId;
+	private ?string $_merchantId = null;
 
-	public $publicKey;
+	private ?string $_publicKey = null;
 
-	public $privateKey;
+	private ?string $_privateKey = null;
 
-	public $testMode;
+	private bool|string $_testMode = false;
 
-	public $merchantAccountId;
+	private array $_merchantAccountIds = [];
 
-	public $sendCartInfo;
+	private bool $_sendCartInfo = false;
 
-	public $googlePayMerchantId;
+	private ?string $_googlePayMerchantId = null;
 
-	private $gateway;
+	private ?Braintree\Gateway $gateway = null;
 
-	private $customer;
+	private ?Braintree\Customer $customer = null;
+
+	private string $_dropinUiSDKVersion = '1.42.0';
+
+	private string $_clientSDKVersion = '3.102.0';
 
 	// Public Methods
 	// =========================================================================
 
-	public function init()
+	public function init(): void
 	{
 		parent::init();
 
 		//BT::log('Braintree init');
 
 		$this->gateway = new Braintree\Gateway([
-			'environment' => $this->testMode ? 'sandbox' : 'production',
-			'merchantId' => Craft::parseEnv($this->merchantId),
-			'publicKey' => Craft::parseEnv($this->publicKey),
-			'privateKey' => Craft::parseEnv($this->privateKey),
+			'environment' => $this->getTestMode() ? 'sandbox' : 'production',
+			'merchantId' => $this->getMerchantId(),
+			'publicKey' => $this->getPublicKey(),
+			'privateKey' => $this->getPrivateKey(),
 		]);
 	}
 
@@ -118,10 +126,127 @@ class Gateway extends BaseGateway
 		return Craft::t('commerce', 'Braintree');
 	}
 
+
+	public function getSettings(): array
+	{
+		$settings = parent::getSettings();
+		$settings['merchantId'] = $this->getMerchantId(false);
+		$settings['publicKey'] = $this->getPublicKey(false);
+		$settings['privateKey'] = $this->getPrivateKey(false);
+		$settings['testMode'] = $this->getTestMode(false);
+		$settings['merchantAccountIds'] = $this->_merchantAccountIds;
+		$settings['googlePayMerchantId'] = $this->getGooglePayMerchantId(false);
+		$settings['dropinUiSDKVersion'] = $this->getDropinUiSDKVersion(false);
+		$settings['clientSDKVersion'] = $this->getClientSDKVersion(false);
+
+		return $settings;
+	}
+
+
+
+
+	public function getTestMode(bool $parse = true): bool|string
+	{
+		return $parse ? App::parseBooleanEnv($this->_testMode) : $this->_testMode;
+	}
+
+	public function setTestMode(bool|string $testMode): void
+	{
+		$this->_testMode = $testMode;
+	}
+
+
+	public function getMerchantId(bool $parse = true): ?string
+	{
+		return $parse ? App::parseEnv($this->_merchantId) : $this->_merchantId;
+	}
+
+	public function setMerchantId(?string $merchantId): void
+	{
+		$this->_merchantId = $merchantId;
+	}
+
+
+	public function getPublicKey(bool $parse = true): ?string
+	{
+		return $parse ? App::parseEnv($this->_publicKey) : $this->_publicKey;
+	}
+
+	public function setPublicKey(?string $publicKey): void
+	{
+		$this->_publicKey = $publicKey;
+	}
+
+
+	public function getPrivateKey(bool $parse = true): ?string
+	{
+		return $parse ? App::parseEnv($this->_privateKey) : $this->_privateKey;
+	}
+
+	public function setPrivateKey(?string $privateKey): void
+	{
+		$this->_privateKey = $privateKey;
+	}
+
+
+	public function getMerchantAccountId(string $currency, bool $parse = true): ?string
+	{
+		if (empty($this->_merchantAccountIds[$currency])) {
+			return null;
+		}
+		return $parse ? App::parseEnv($this->_merchantAccountIds[$currency]) : $this->_merchantAccountIds[$currency];
+	}
+
+	public function setMerchantAccountId(string $currency, ?string $merchantAccountId): void
+	{
+		$this->_merchantAccountIds[$currency] = $merchantAccountId;
+	}
+
+	public function setMerchantAccountIds(array $merchantAccountIds): void
+	{
+		$this->_merchantAccountIds = $merchantAccountIds;
+	}
+
+
+	public function getGooglePayMerchantId(bool $parse = true): ?string
+	{
+		return $parse ? App::parseEnv($this->_googlePayMerchantId) : $this->_googlePayMerchantId;
+	}
+
+	public function setGooglePayMerchantId(?string $googlePayMerchantId): void
+	{
+		$this->_googlePayMerchantId = $googlePayMerchantId;
+	}
+
+
+	public function getDropinUiSDKVersion(bool $parse = true): ?string
+	{
+		return $parse ? App::parseEnv($this->_dropinUiSDKVersion) : $this->_dropinUiSDKVersion;
+	}
+
+	public function setDropinUiSDKVersion(?string $version): void
+	{
+		$this->_dropinUiSDKVersion = $version;
+	}
+
+	public function getClientSDKVersion(bool $parse = true): ?string
+	{
+		return $parse ? App::parseEnv($this->_clientSDKVersion) : $this->_clientSDKVersion;
+	}
+
+	public function setClientSDKVersion(?string $version): void
+	{
+		$this->_clientSDKVersion = $version;
+	}
+
+
+
+
+
 	/**
 	 * @inheritdoc
 	 */
-	public function getPaymentFormHtml(array $params = [])
+	public function getPaymentFormHtml(array $params = []): string
 	{
 		$request = Craft::$app->getRequest();
 
@@ -132,14 +257,13 @@ class Gateway extends BaseGateway
 		}
 	}
 
-	public function getToken($user = null, $currency = null)
+	public function getToken($user = null, $currency = null): string
 	{
 		//$omnipayGateway = $this->createGateway();
 		$params = [];
+
 		if ($currency) {
-			$params['merchantAccountId'] = Craft::parseEnv(
-				$this->merchantAccountId[$currency]
-			);
+			$params['merchantAccountId'] = $this->getMerchantAccountId($currency);
 		}
 		if ($user) {
 			try {
@@ -166,28 +290,26 @@ class Gateway extends BaseGateway
 	/**
 	 * @inheritdoc
 	 */
-	public function getSettingsHtml()
+	public function getSettingsHtml(): string
 	{
-		return Craft::$app
-			->getView()
-			->renderTemplate('commerce-braintree/gatewaySettings', [
-				'gateway' => $this,
-			]);
+		return Craft::$app->getView()->renderTemplate('commerce-braintree/gatewaySettings', [
+			'gateway' => $this,
+		]);
 	}
 
 	/**
 	 * @inheritdoc
 	 */
 	/*public function populateRequest(array &$request, BasePaymentForm $paymentForm = null)
-    {
-        if ($paymentForm && $paymentForm->hasProperty('nonce') && $paymentForm->nonce) {
-            $request['token'] = $paymentForm->nonce;
-        }
-        $request['merchantAccountId'] = Craft::parseEnv($this->merchantAccountId[$request['currency']]);
-        //Craft::dd($request);
-    }*/
+	{
+		if ($paymentForm && $paymentForm->hasProperty('nonce') && $paymentForm->nonce) {
+			$request['token'] = $paymentForm->nonce;
+		}
+		$request['merchantAccountId'] = Craft::parseEnv($this->merchantAccountId[$request['currency']]);
+		//Craft::dd($request);
+	}*/
 
-	public function getCustomer($user)
+	public function getCustomer($user): ?Braintree\Customer
 	{
 		if (!$this->customer) {
 			try {
@@ -199,12 +321,12 @@ class Gateway extends BaseGateway
 		return $this->customer;
 	}
 
-	public function getPaymentMethod($token)
+	public function getPaymentMethod($token): mixed
 	{
 		return $this->gateway->paymentMethod()->find($token);
 	}
 
-	public function createPaymentMethod(BasePaymentForm $sourceData,int $userId)
+	public function createPaymentMethod(BasePaymentForm $sourceData, int $userId): mixed
 	{
 		if (!$userId) {
 			$user = Craft::$app->getUser()->getIdentity();
@@ -223,16 +345,16 @@ class Gateway extends BaseGateway
 		]);
 	}
 
-	public function deletePaymentMethod($token)
+	public function deletePaymentMethod($token): bool
 	{
 		$result = $this->gateway->paymentMethod()->delete($token);
 
 		return $result->success;
 	}
 
-	public function authorize(Transaction $transaction,BasePaymentForm $form): RequestResponseInterface
+	public function authorize(Transaction $transaction, BasePaymentForm $form): RequestResponseInterface
 	{
-        //Craft::dd($transaction);
+		//Craft::dd($transaction);
 		try {
 			$order = $transaction->getOrder();
 			$data = [
@@ -241,13 +363,13 @@ class Gateway extends BaseGateway
 				'options' => ['submitForSettlement' => false],
 			];
 
-			if ($order->user) {
-				if ($this->getCustomer($order->user)) {
-					$data['customerId'] = $order->user->uid;
+			if ($order->customer) {
+				if ($this->getCustomer($order->customer)) {
+					$data['customerId'] = $order->customer->uid;
 				} else {
 					$data['customer'] = [
-						'firstName' => $order->user->firstName,
-						'lastName' => $order->user->lastName,
+						'firstName' => $order->customer->firstName,
+						'lastName' => $order->customer->lastName,
 						'email' => $order->email,
 					];
 				}
@@ -264,24 +386,18 @@ class Gateway extends BaseGateway
 			} elseif ($form->token) {
 				$data['paymentMethodToken'] = $form->token;
 			}
-			if (isset($this->merchantAccountId[$transaction->currency]) && !empty($this->merchantAccountId[$transaction->currency])) {
-				$data['merchantAccountId'] = Craft::parseEnv(
-					$this->merchantAccountId[$transaction->currency]
-				);
+			if ($merchantAccountId = $this->getMerchantAccountId($transaction->currency)) {
+				$data['merchantAccountId'] = $merchantAccountId;
 			} else {
 				$data['merchantAccountId'] = "";
 				$data['amount'] = $transaction->amount;
 			}
 			if ($form->type != "PayPalAccount") {
 				if ($order->billingAddress || $order->shippingAddress) {
-					$data['billing'] = $this->_formatAddress(
-						$order->billingAddress ?: $order->shippingAddress
-					);
+					$data['billing'] = $this->_formatAddress($order->billingAddress ?: $order->shippingAddress);
 				}
 				if ($order->shippingAddress) {
-					$data['shipping'] = $this->_formatAddress(
-						$order->shippingAddress
-					);
+					$data['shipping'] = $this->_formatAddress($order->shippingAddress);
 				}
 			}
 
@@ -303,24 +419,20 @@ class Gateway extends BaseGateway
 		}
 	}
 
-	public function capture(Transaction $transaction,string $reference): RequestResponseInterface
+	public function capture(Transaction $transaction, string $reference): RequestResponseInterface
 	{
-        //Craft::dd($transaction);
+		//Craft::dd($transaction);
 		try {
-			$result = $this->gateway
-				->transaction()
-				->submitForSettlement($reference);
+			$result = $this->gateway->transaction()->submitForSettlement($reference);
 			return new PaymentResponse($result);
 		} catch (\Exception $exception) {
 			throw $exception;
 		}
 	}
 
-	public function completeAuthorize(Transaction $transaction): RequestResponseInterface
-	{
-	}
+	public function completeAuthorize(Transaction $transaction): RequestResponseInterface {}
 
-	public function createPaymentSource(BasePaymentForm $sourceData,int $userId): PaymentSource
+	public function createPaymentSource(BasePaymentForm $sourceData, int $userId): PaymentSource
 	{
 		//Craft::dd($sourceData);
 		try {
@@ -331,19 +443,17 @@ class Gateway extends BaseGateway
 			}
 
 			//check for existing paymentSource
-			$sources = Commerce::getInstance()
-				->getPaymentSources()
-				->getAllGatewayPaymentSourcesByUserId($this->id, $userId);
+			$sources = Commerce::getInstance()->getPaymentSources()->getAllGatewayPaymentSourcesByUserId($this->id, $userId);
 
 			foreach ($sources as $source) {
 				if ($source->token == $response->paymentMethod->token) {
-					Commerce::getInstance()
-						->getPaymentSources()
-						->deletePaymentSourceById($source->id);
+					Commerce::getInstance()->getPaymentSources()->deletePaymentSourceById($source->id);
 				}
 			}
 
-			$description = Craft::t('commerce-braintree','{cardType} ending in ••••{last4}',
+			$description = Craft::t(
+				'commerce-braintree',
+				'{cardType} ending in ••••{last4}',
 				[
 					'cardType' => $response->paymentMethod->cardType,
 					'last4' => $response->paymentMethod->last4,
@@ -385,13 +495,13 @@ class Gateway extends BaseGateway
 				'options' => ['submitForSettlement' => true],
 			];
 
-			if ($order->user) {
-				if ($this->getCustomer($order->user)) {
-					$data['customerId'] = $order->user->uid;
+			if ($order->customer) {
+				if ($this->getCustomer($order->customer)) {
+					$data['customerId'] = $order->customer->uid;
 				} else {
 					$data['customer'] = [
-						'firstName' => $order->user->firstName,
-						'lastName' => $order->user->lastName,
+						'firstName' => $order->customer->firstName,
+						'lastName' => $order->customer->lastName,
 						'email' => $order->email,
 					];
 				}
@@ -409,10 +519,8 @@ class Gateway extends BaseGateway
 			} elseif ($form->token) {
 				$data['paymentMethodToken'] = $form->token;
 			}
-			if (isset($this->merchantAccountId[$transaction->currency]) && !empty($this->merchantAccountId[$transaction->currency])) {
-				$data['merchantAccountId'] = Craft::parseEnv(
-					$this->merchantAccountId[$transaction->currency]
-				);
+			if ($merchantAccountId = $this->getMerchantAccountId($transaction->currency)) {
+				$data['merchantAccountId'] = $merchantAccountId;
 			} else {
 				$data['merchantAccountId'] = "";
 				$data['amount'] = $transaction->amount;
@@ -443,22 +551,12 @@ class Gateway extends BaseGateway
 				BT::error($message);
 				throw new PaymentException($message);
 			}
-			BT::error(
-				'The payment could not be processed (' .
-					get_class($exception) .
-					')'
-			);
-			throw new PaymentException(
-				'The payment could not be processed (' .
-					get_class($exception) .
-					')'
-			);
+			BT::error('The payment could not be processed (' . get_class($exception) . ')');
+			throw new PaymentException('The payment could not be processed (' . get_class($exception) . ')');
 		}
 	}
 
-	public function completePurchase(Transaction $transaction): RequestResponseInterface
-	{
-	}
+	public function completePurchase(Transaction $transaction): RequestResponseInterface {}
 
 	public function createSale($data)
 	{
@@ -485,10 +583,7 @@ class Gateway extends BaseGateway
 
 		if ($response->success) {
 			// remove paymentsource
-			$source = $this->getPaymentSource(
-				$subscription->userId,
-				$subscription->subscriptionData['paymentMethodToken']
-			);
+			$source = $this->getPaymentSource($subscription->userId, $subscription->subscriptionData['paymentMethodToken']);
 			if ($source) {
 				// check if any other subscriptions are using this payment source
 				$canDelete = true;
@@ -508,16 +603,9 @@ class Gateway extends BaseGateway
 				// subscription has already been cancelled on Braintree but not in the site. So let's cancel on site as well
 				if ($error->code == "81905") {
 					try {
-						$response = $this->gateway
-							->subscription()
-							->find($subscription->reference);
+						$response = $this->gateway->subscription()->find($subscription->reference);
 					} catch (Braintree_Exception_NotFound $e) {
-						throw new SubscriptionException(
-							'Failed to cancel subscription: ' .
-								$subscription->reference .
-								". Error:" .
-								$e->getMessage()
-						);
+						throw new SubscriptionException('Failed to cancel subscription: ' . $subscription->reference . ". Error:" . $e->getMessage());
 					}
 
 					return new SubscriptionResponse($response);
@@ -537,9 +625,7 @@ class Gateway extends BaseGateway
 		$previousMode = $view->getTemplateMode();
 		$view->setTemplateMode(View::TEMPLATE_MODE_CP);
 
-		$html = $view->renderTemplate(
-			'commerce-braintree/cancelSubscriptionForm'
-		);
+		$html = $view->renderTemplate('commerce-braintree/cancelSubscriptionForm');
 		$view->setTemplateMode($previousMode);
 
 		return $html;
@@ -563,7 +649,7 @@ class Gateway extends BaseGateway
 		return new Plan();
 	}
 
-	public function getPlanSettingsHtml(array $params = [])
+	public function getPlanSettingsHtml(array $params = []): String
 	{
 		$params['plans'] = [];
 		foreach ($this->getSubscriptionPlans() as $plan) {
@@ -572,9 +658,7 @@ class Gateway extends BaseGateway
 				'value' => $plan->id,
 			];
 		}
-		return Craft::$app
-			->getView()
-			->renderTemplate('commerce-braintree/planSettings', $params);
+		return Craft::$app->getView()->renderTemplate('commerce-braintree/planSettings', $params);
 	}
 
 	public function getSubscriptionFormHtml(): string
@@ -617,17 +701,14 @@ class Gateway extends BaseGateway
 		return $payments;
 	}
 
-	public function refreshPaymentHistory(Subscription $subscription)
+	public function refreshPaymentHistory(Subscription $subscription): void
 	{
 		$response = null;
 
 		try {
 			$response = $this->gateway->subscription()->find($subscription->reference);
 		} catch (\Braintree_Exception_NotFound $e) {
-			throw new SubscriptionException(
-				'Failed to refresh payment history for subscription: ' .
-					$subscription->reference
-			);
+			throw new SubscriptionException('Failed to refresh payment history for subscription: ' . $subscription->reference);
 		}
 
 		if ($response) {
@@ -636,8 +717,6 @@ class Gateway extends BaseGateway
 
 			Craft::$app->getElements()->saveElement($subscription);
 		}
-
-		return true;
 	}
 
 	public function getSubscriptionPlanByReference(string $reference): string
@@ -671,7 +750,7 @@ class Gateway extends BaseGateway
 		return $output;
 	}
 
-	public function createSubscription($data)
+	public function createSubscription($data): mixed
 	{
 		return (object) $this->gateway->subscription()->create($data);
 	}
@@ -680,7 +759,7 @@ class Gateway extends BaseGateway
 	{
 		$source = $this->getPaymentSource($user->id);
 		if (!$source) {
-			throw new PaymentSourceException(Craft::t('commerce-braintree','No payment sources are saved to use for subscriptions.'));
+			throw new PaymentSourceException(Craft::t('commerce-braintree', 'No payment sources are saved to use for subscriptions.'));
 		}
 		$plan = new Plan($plan);
 
@@ -688,9 +767,7 @@ class Gateway extends BaseGateway
 			'paymentMethodToken' => $source->token,
 			'planId' => $plan->reference,
 			'price' => $plan->price,
-			'merchantAccountId' => Craft::parseEnv(
-				$this->merchantAccountId[$plan->getCurrency()]
-			),
+			'merchantAccountId' => $this->getMerchantAccountId($plan->getCurrency()),
 		];
 
 		if ($parameters->trialDays > 0) {
@@ -704,10 +781,7 @@ class Gateway extends BaseGateway
 		if (!$response->success) {
 			//Craft::dd($response);
 			throw new SubscriptionException(
-				Craft::t(
-					'commerce-braintree',
-					'Unable to subscribe at this time.'
-				)
+				Craft::t('commerce-braintree', 'Unable to subscribe at this time.')
 			);
 		}
 
@@ -745,23 +819,18 @@ class Gateway extends BaseGateway
 			$params['options'] = ['prorateCharges' => false];
 		}
 		//Craft::dd($params);
-		$response = $this->gateway
-			->subscription()
-			->update($subscription->reference, $params);
+		$response = $this->gateway->subscription()->update($subscription->reference, $params);
 
 		if (!$response->success) {
 			throw new SubscriptionException(
-				Craft::t(
-					'commerce-braintree',
-					'Unable to subscribe at this time.'
-				)
+				Craft::t('commerce-braintree', 'Unable to subscribe at this time.')
 			);
 		}
 
 		return new SubscriptionResponse($response->subscription);
 	}
 
-	public function updateSubscriptionPayment(Subscription $subscription, BasePlan $plan, $gateway, $paymentForm)
+	public function updateSubscriptionPayment(Subscription $subscription, BasePlan $plan, $gateway, $paymentForm): SubscriptionResponseInterface
 	{
 		$userId = Craft::$app->getUser()->getId();
 		$description = "";
@@ -775,16 +844,11 @@ class Gateway extends BaseGateway
 			'planId' => $plan->reference,
 		];
 
-		$response = $this->gateway
-			->subscription()
-			->update($subscription->reference, $params);
+		$response = $this->gateway->subscription()->update($subscription->reference, $params);
 
 		if (!$response->success) {
 			throw new SubscriptionException(
-				Craft::t(
-					'commerce-braintree',
-					'Unable to unpdate subscription at this time.'
-				)
+				Craft::t('commerce-braintree', 'Unable to unpdate subscription at this time.')
 			);
 		} else {
 			// remove paymentsource
@@ -846,7 +910,7 @@ class Gateway extends BaseGateway
 			case 'subscription_charged_successfully':
 				$this->_handleSubscriptionCharged($webhookNotification->subscription);
 				break;
-			// subscription_charged_unsuccessfully
+				// subscription_charged_unsuccessfully
 		}
 
 		return Craft::$app->end();
@@ -907,7 +971,7 @@ class Gateway extends BaseGateway
 		return false;
 	}
 
-	private function getPaymentSource($userId, $token = null)
+	private function getPaymentSource($userId, $token = null): mixed
 	{
 		$sources = Commerce::getInstance()->getPaymentSources()->getAllGatewayPaymentSourcesByUserId($this->id, $userId);
 
@@ -927,7 +991,7 @@ class Gateway extends BaseGateway
 		return $sources[0];
 	}
 
-	private function getCpPaymentFormHtml(array $params = [])
+	private function getCpPaymentFormHtml(array $params = []): string
 	{
 		$request = Craft::$app->getRequest();
 
@@ -951,24 +1015,17 @@ class Gateway extends BaseGateway
 		$previousMode = $view->getTemplateMode();
 		$view->setTemplateMode(View::TEMPLATE_MODE_CP);
 
-		$view->registerJsFile(
-			'https://js.braintreegateway.com/web/3.52.0/js/client.min.js'
-		);
-		$view->registerJsFile(
-			'https://js.braintreegateway.com/web/3.52.0/js/hosted-fields.min.js'
-		);
+		$view->registerJsFile("https://js.braintreegateway.com/web/{$this->getClientSDKVersion()}/js/client.min.js");
+		$view->registerJsFile("https://js.braintreegateway.com/web/{$this->getClientSDKVersion()}/js/hosted-fields.min.js");
 		$view->registerAssetBundle(HostedFieldsAsset::class);
-		$html = $view->renderTemplate(
-			'commerce-braintree/paymentForms/hosted-fields',
-			$params
-		);
+		$html = $view->renderTemplate('commerce-braintree/paymentForms/hosted-fields', $params);
 
 		$view->setTemplateMode($previousMode);
 
 		return $html;
 	}
 
-	private function getSitePaymentFormHtml(array $params = [])
+	private function getSitePaymentFormHtml(array $params = []): string
 	{
 		$request = Craft::$app->getRequest();
 
@@ -980,7 +1037,7 @@ class Gateway extends BaseGateway
 				'vault' => false,
 				'manage' => false,
 				'subscription' => false,
-				'googlePayMerchantId' => Craft::parseEnv($this->googlePayMerchantId),
+				'googlePayMerchantId' => $this->getGooglePayMerchantId(),
 			],
 			$params
 		);
@@ -997,22 +1054,63 @@ class Gateway extends BaseGateway
 		$previousMode = $view->getTemplateMode();
 		$view->setTemplateMode(View::TEMPLATE_MODE_CP);
 
-		$view->registerJsFile(
-			'https://js.braintreegateway.com/web/dropin/1.33.0/js/dropin.min.js'
-		);
-
+		$view->registerJsFile("https://js.braintreegateway.com/web/dropin/{$this->getDropinUiSDKVersion()}/js/dropin.min.js");
 		$view->registerAssetBundle(DropinUiAsset::class);
-		$html = $view->renderTemplate(
-			'commerce-braintree/paymentForms/dropin-ui',
-			$params
-		);
+		$html = $view->renderTemplate('commerce-braintree/paymentForms/dropin-ui', $params);
 
 		$view->setTemplateMode($previousMode);
 
 		return TemplateHelper::raw($html);
 	}
 
-	private function isPaid($status)
+	public function getExpressCheckoutHtml(array $params = []): string
+	{
+		$request = Craft::$app->getRequest();
+
+		$params = array_merge(
+			[
+				'gateway' => $this,
+				'paymentForm' => $this->getPaymentFormModel(),
+				'googlePayMerchantId' => $this->getGooglePayMerchantId(),
+				'testMode' => $this->getTestMode(),
+			],
+			$params
+		);
+
+		$orderId = $request->getParam('number');
+		if ($orderId) {
+			$order = Commerce::getInstance()->getOrders()->getOrderByNumber($orderId);
+		} else {
+			$order = Commerce::getInstance()->getCarts()->getCart();
+		}
+		$params['order'] = $order;
+
+		$view = Craft::$app->getView();
+		$previousMode = $view->getTemplateMode();
+		$view->setTemplateMode(View::TEMPLATE_MODE_CP);
+
+		$view->registerJsFile("https://js.braintreegateway.com/web/{$this->getClientSDKVersion()}/js/client.min.js");
+
+		if ($params['googlePay'] ?? null) {
+			$view->registerJsFile("https://pay.google.com/gp/p/js/pay.js");
+			$view->registerJsFile("https://js.braintreegateway.com/web/{$this->getClientSDKVersion()}/js/google-payment.min.js");
+			$view->registerAssetBundle(GooglePayAsset::class);
+		}
+		if ($params['applePay'] ?? null) {
+			$view->registerJsFile("https://applepay.cdn-apple.com/jsapi/v1/apple-pay-sdk.js");
+			$view->registerJsFile("https://js.braintreegateway.com/web/{$this->getClientSDKVersion()}/js/apple-pay.min.js");
+			$view->registerAssetBundle(ApplePayAsset::class);
+		}
+
+		$html = $view->renderTemplate('commerce-braintree/paymentForms/express-checkout', $params);
+
+		$view->setTemplateMode($previousMode);
+
+		return TemplateHelper::raw($html);
+	}
+
+
+	private function isPaid($status): bool
 	{
 		switch ($status) {
 			case 'submitted_for_settlement':
@@ -1054,16 +1152,12 @@ class Gateway extends BaseGateway
 	 *
 	 * @throws \Throwable
 	 */
-	private function _handleSubscriptionExpired($data)
+	private function _handleSubscriptionExpired($data): void
 	{
 		$subscription = Subscription::find()->reference($data->id)->one();
 
 		if (!$subscription) {
-			Craft::warning(
-				'Subscription with the reference “' .
-					$subscription->id .
-					'” not found when processing Braintree webhook'
-			);
+			Craft::warning('Subscription with the reference “' . $data->id . '” not found when processing Braintree webhook');
 
 			return;
 		}
@@ -1071,7 +1165,7 @@ class Gateway extends BaseGateway
 		Commerce::getInstance()->getSubscriptions()->expireSubscription($subscription);
 	}
 
-	private function _handleSubscriptionCharged($data)
+	private function _handleSubscriptionCharged($data): void
 	{
 		$counter = 0;
 		$limit = 5;
@@ -1089,12 +1183,12 @@ class Gateway extends BaseGateway
 
 		$defaultPaymentCurrency = Commerce::getInstance()->getPaymentCurrencies()->getPrimaryPaymentCurrency();
 		$currency = Commerce::getInstance()->getCurrencies()->getCurrencyByIso($defaultPaymentCurrency->iso);
-		$payment = $this->_createSubscriptionPayment($data, $currency->alphabeticCode);
+		$payment = $this->_createSubscriptionPayment($data, $currency);
 
 		Commerce::getInstance()->getSubscriptions()->receivePayment($subscription, $payment, $data->nextBillingDate);
 	}
 
-	private function _formatAddress($data)
+	private function _formatAddress($data): array
 	{
 		if (!$data) {
 			return [];
@@ -1103,26 +1197,20 @@ class Gateway extends BaseGateway
 		return [
 			'firstName' => $data->firstName,
 			'lastName' => $data->lastName,
-			'company' => StringHelper::safeTruncate($data->businessName, 50),
-			'streetAddress' => StringHelper::safeTruncate($data->address1, 50),
-			'extendedAddress' => StringHelper::safeTruncate(
-				$data->address2,
-				50
-			),
-			'locality' => $data->city,
-			'region' =>
-				$data->state && $data->country && $data->country->iso == 'US'
-					? $data->state->abbreviation
-					: $data->stateName,
-			'postalCode' => $data->zipCode,
+			'company' => StringHelper::safeTruncate(($data->organization ?? ''), 50),
+			'streetAddress' => StringHelper::safeTruncate($data->addressLine1, 50),
+			'extendedAddress' => StringHelper::safeTruncate(($data->addressLine2 ?? ''), 50),
+			'locality' => $data->locality,
+			'region' => $data->administrativeArea,
+			'postalCode' => $data->postalCode,
 			//'countryName' => $data->country ? $data->country->name : '',
-			'countryCodeAlpha2' => $data->country ? $data->country->iso : '',
+			'countryCodeAlpha2' => $data->countryCode ?? '',
 		];
 	}
 
-	public function format3DSAddress($order)
+	public function format3DSAddress($order): array
 	{
-		if (get_class($order) == 'craft\\commerce\\models\\Address') {
+		if (get_class($order) == 'craft\\elements\\Address') {
 			$address = $order;
 		} else {
 			$address = $order->billingAddress ?: $order->shippingAddress;
@@ -1135,18 +1223,13 @@ class Gateway extends BaseGateway
 		return [
 			'givenName' => $address->firstName,
 			'surname' => $address->lastName,
-			'phoneNumber' => preg_replace('/[()\s-]/', '', $address->phone),
-			'streetAddress' => StringHelper::safeTruncate(
-				$address->address1,
-				50
-			),
-			'extendedAddress' => StringHelper::safeTruncate($address->address2,50),
-			'locality' => StringHelper::safeTruncate($address->city, 50),
-			'region' => $address->state
-				? $address->state->abbreviation
-				: $address->stateName,
-			'postalCode' => $address->zipCode,
-			'countryCodeAlpha2' => $address->country ? $address->country->iso : '',
+			'phoneNumber' => preg_replace('/[()\s-]/', '', ($address->phone ?? '')),
+			'streetAddress' => StringHelper::safeTruncate($address->addressLine1, 50),
+			'extendedAddress' => StringHelper::safeTruncate(($address->addressLine2 ?? ''), 50),
+			'locality' => StringHelper::safeTruncate($address->locality, 50),
+			'region' => $address->administrativeArea,
+			'postalCode' => $address->postalCode,
+			'countryCodeAlpha2' => $address->countryCode ?? '',
 		];
 	}
 }

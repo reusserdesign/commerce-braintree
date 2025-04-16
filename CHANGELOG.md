@@ -4,7 +4,91 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## 2.4.2 - 2021-12-16 - UNRELEASED
+## 3.0.3 - 2024-05-16
+### Added
+- Craft 5 compatibility
+
+### Updated
+- DropInUiSDK version 1.42.0
+- ClientSDK version 3.102.0
+
+## 3.0.2 - 2024-03-13
+### Fixed
+- Braintree\Customer type
+
+## 3.0.1 - 2024-02-06
+### Changed
+- manual state control option for buttons
+- Released - finally!
+
+## 3.0.0-beta.11 - 2023-05-18
+### Changed
+- changed callback param to object with callbacks for "onPaymentMethodSelect" and "onPaymentMethodReady"
+
+## 3.0.0-beta.10 - 2023-03-31
+### Changed
+- express checkout params
+
+### Added
+- DropinUi Callback param.
+
+## 3.0.0-beta.9 - 2023-03-24
+### Changed
+- quick checkout => express checkout
+
+### Added
+- params for express checkout buttons
+- express checkout buttons wrapping div with class "express-checkout-buttons" for layout purposes.
+
+## 3.0.0-beta.8 - 2023-03-21
+### Changed
+- removed testing values
+
+## 3.0.0-beta.7 - 2023-03-21
+### Changed
+- updated dropinUI sdk to 1.34.0
+- updated client sdk to 3.91.0
+
+### Added
+- NEW quick checkout ability for applePay and googlePay
+
+## 3.0.0-beta.6 - 2023-03-08
+### Changed
+- order.user => order.customer
+
+### Added
+- Ability to specify SDK versions
+
+## 3.0.0-beta.5 - 2023-03-08
+### Fixed
+- js form submission
+
+## 3.0.0-beta.4 - 2023-03-03
+### Fixed
+- data type issues
+- multiple form issues
+- fixed no jquery changes
+
+### Changed
+- Updated submit button dataset to allow html not just text
+
+## 3.0.0-beta.3 - 2023-01-30
+### Changed
+- Updated data type
+
+## 3.0.0-beta.2 - 2023-01-19
+### Changed
+- Removed jQuery dependency for DropInUI
+
+## 3.0.0-beta.1 - 2022-10-12
+### Added
+- Craft / Commerce 4 support.
+
+## 2.4.3 - 2022-06-10
+### Changed
+- Change of ownership
+
+## 2.4.2 - 2021-12-16
 
 ### Fixed
 

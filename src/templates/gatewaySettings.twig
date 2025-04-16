@@ -13,14 +13,14 @@
  */
 #}
 
-{% from "_includes/forms" import autosuggestField, lightswitchField %}
+{% from "_includes/forms" import autosuggestField, lightswitchField, booleanMenuField %}
 
 {{ autosuggestField({
     label: 'Merchant ID'|t('commerce'),
     id: 'merchantId',
     class: 'ltr',
     name: 'merchantId',
-    value: gateway.merchantId,
+    value: gateway.getMerchantId(false),
     errors: gateway.getErrors('merchantId'),
 	suggestEnvVars: true,
 	required: true,
@@ -31,7 +31,7 @@
     id: 'publicKey',
     class: 'ltr',
     name: 'publicKey',
-    value: gateway.publicKey,
+    value: gateway.getPublicKey(false),
     errors: gateway.getErrors('publicKey'),
 	suggestEnvVars: true,
 	required: true,
@@ -42,7 +42,7 @@
     id: 'privateKey',
     class: 'ltr',
     name: 'privateKey',
-    value: gateway.privateKey,
+    value: gateway.getPrivateKey(false),
     errors: gateway.getErrors('privateKey'),
 	suggestEnvVars: true,
 	required: true,
@@ -54,15 +54,17 @@
     id: 'googlePayMerchantId',
     class: 'ltr',
     name: 'googlePayMerchantId',
-    value: gateway.googlePayMerchantId,
+    value: gateway.getGooglePayMerchantId(false),
     errors: gateway.getErrors('googlePayMerchantId'),
 	suggestEnvVars: true,
 }) }}
 
-{{ lightswitchField({
+
+{{ booleanMenuField({
      label: "Test mode?"|t('commerce'),
      name: 'testMode',
-     on: gateway.testMode,
+     value: gateway.getTestMode(false),
+     includeEnvVars: true,
      errors: gateway.getErrors('testMode'),
 }) }}
 
@@ -73,10 +75,35 @@
 {{ autosuggestField({
     label: currency.iso~' Merchant Account ID'|t('commerce'),
     class: 'ltr',
-    name: 'merchantAccountId['~currency.iso~']',
-    value: gateway.merchantAccountId[currency.iso] ?? null,
+    name: 'merchantAccountIds['~currency.iso~']',
+    value: gateway.getMerchantAccountId(currency.iso, false),
 	suggestEnvVars: true,
 	required: true,
 }) }}
 {% endfor %}
 {# {% endif %} #}
+
+<hr>
+<a class="fieldtoggle" data-target="advanced">{{ "Advanced"|t('app') }}</a>
+<div id="advanced" class="hidden">
+    {{ autosuggestField({
+        label: 'Drop-in UI SDK Version'|t('commerce-braintree'),
+        instructions: 'SDK version used for drop-in UI on site front end. Most recent versions are listed in the [GitHub repository](https://github.com/braintree/braintree-web-drop-in/tags).',
+        id: 'dropinUiSDKVersion',
+        class: 'ltr',
+        name: 'dropinUiSDKVersion',
+        value: gateway.getDropinUiSDKVersion(false),
+        errors: gateway.getErrors('dropinUiSDKVersion'),
+        suggestEnvVars: true
+    }) }}
+    {{ autosuggestField({
+        label: 'Client SDK Version'|t('commerce-braintree'),
+        instructions: 'SDK version used for hosted fields in the control panel. Most recent versions are listed in the [GitHub repository](https://github.com/braintree/braintree-web/tags).',
+        id: 'clientSDKVersion',
+        class: 'ltr',
+        name: 'clientSDKVersion',
+        value: gateway.getClientSDKVersion(false),
+        errors: gateway.getErrors('clientSDKVersion'),
+        suggestEnvVars: true
+    }) }}
+</div>

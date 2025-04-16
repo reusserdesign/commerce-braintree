@@ -1,8 +1,7 @@
 {
-	"name": "kuriousagency/commerce-braintree",
+	"name": "webdna/commerce-braintree",
 	"description": "Braintree gateway for Craft Commerce",
 	"type": "craft-plugin",
-	"version": "3.0.1",
 	"keywords": [
 		"craft",
 		"cms",
@@ -10,31 +9,30 @@
 		"craft-plugin",
 		"commerce braintree"
 	],
+	"support": {
+		"docs": "https://github.com/webdna/commerce-braintree",
+		"issues": "https://github.com/webdna/commerce-braintree/issues?state=open"
+	},
 	"license": "proprietary",
 	"authors": [
 		{
-			"name": "Kurious Agency",
-			"homepage": "https://kurious.agency"
+			"name": "WebDNA",
+			"homepage": "https://webdna.co.uk"
 		}
 	],
 	"require": {
-		"craftcms/cms": "^3.0.0",
-		"craftcms/commerce": "^2.0.0|^3.0",
-		"braintree/braintree_php": "^4.5"
+		"craftcms/cms": "^4.0.0||^5.0",
+		"craftcms/commerce": "^4.0||^5.0",
+		"braintree/braintree_php": "^6.9"
 	},
 	"autoload": {
 		"psr-4": {
-			"kuriousagency\\commerce\\braintree\\": "src/"
+			"webdna\\commerce\\braintree\\": "src/"
 		}
 	},
 	"extra": {
 		"name": "Braintree for Craft Commerce",
 		"handle": "commerce-braintree",
-		"hasCpSettings": false,
-		"hasCpSection": false,
-		"components": {
-			"braintreeService": "kuriousagency\\commerce\\braintree\\services\\BraintreeService"
-		},
-		"class": "kuriousagency\\commerce\\braintree\\Braintree"
+		"class": "webdna\\commerce\\braintree\\Braintree"
 	}
 }
