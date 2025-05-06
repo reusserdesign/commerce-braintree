@@ -138,10 +138,10 @@ class Braintree extends Plugin
 	/**
 	 * @inheritdoc
 	 */
-	protected function createSettingsModel(): ?Model
-	{
-		return new Settings();
-	}
+	// protected function createSettingsModel(): ?Model
+	// {
+	// 	return new Settings();
+	// }
 
 	/**
 	 * @inheritdoc
