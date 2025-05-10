@@ -173,12 +173,11 @@
 	function formSubmit(e) {
 		e.preventDefault();
 		var $deviceDataInput = e.currentTarget.querySelector('[name="deviceData"]');
-		
-		//console.log(e)
-		var dropinInstance = e.data.dropinInstance,
-			$form = $(e.currentTarget),
-			threeDSecure = e.data.threeDSecure,
-			$submit = $form.find('button[type="submit"]');
+
+		var dropinInstance = window.commerceBT.options.dropinInstance;
+		var $form = $(e.currentTarget);
+		var threeDSecure = window.commerceBT.options.threeDSecure;
+		var $submit = $form.find('button[type="submit"]')[0];
 		processing($submit);
 
 		dropinInstance.requestPaymentMethod(threeDSecure ? window.commerceBT.options.options : {}, function(err, payload) {
@@ -198,8 +197,8 @@
 
 			if ((payload.liabilityShiftPossible && payload.liabilityShifted) || !payload.liabilityShiftPossible || payload.type !== 'CreditCard' || !threeDSecure) {
 				processing($submit);
-				$form.querySelector('input[name*=nonce]').value = payload.nonce;
-				$form.removeEventListener('submit', formSubmit);
+				$form[0].querySelector('input[name*=nonce]').value = payload.nonce;
+				$form[0].removeEventListener('submit', formSubmit);
 				window.commerceBT.methodSelected = true;
 				if (window.commerceBT.callbacks.hasOwnProperty('onPaymentMethodReady')) {
 					window.commerceBT.callbacks.onPaymentMethodReady();
