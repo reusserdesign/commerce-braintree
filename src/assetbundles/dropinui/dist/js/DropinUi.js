@@ -11,6 +11,8 @@
  */
 
 (function() {
+	let namespace = document.querySelector('.payment-form-braintree').dataset.paymentFormNamespace;
+
 	(function check() {
 		if (typeof braintree !== 'undefined') {
 			init();
@@ -18,16 +20,17 @@
 			setTimeout(check, 50);
 		}
 	})();
-	
+
 	window.commerceBT = {
 		callbacks:{},
 		methodSelected:false,
 	};
 
 	function init($) {
+
 		document.querySelectorAll('form').forEach(function($form) {
 			var $token = $form.querySelector('[name*="gatewayToken"]'),
-				$nonce = $form.querySelector('[name*="nonce"]'),
+				$nonce = $form.querySelector('[name*="'+namespace+'[nonce]"]'),
 				amount = $form.querySelector('[name*="amount"]')?.value,
 				currency = $form.querySelector('[name*="currency"]')?.value,
 				email = $form.querySelector('[name*="email"]')?.value,
@@ -118,7 +121,7 @@
 						}
 						return;
 					}
-					
+
 					if ($submit.dataset.manual) {
 						$submit.dataset.loading = false;
 					} else {
@@ -184,11 +187,11 @@
 				reset($submit);
 				return;
 			}
-			//console.log(payload);
+			console.log(payload);
 			if ((payload.liabilityShiftPossible && payload.liabilityShifted) || !payload.liabilityShiftPossible || payload.type !== 'CreditCard' || !threeDSecure) {
 				processing($submit);
-				$form.querySelector('input[name*=nonce]').value = payload.nonce;
-				$form.querySelector('input[name*=deviceData]').value = payload.deviceData;
+				$form.querySelector('input[name*="' + namespace + '[nonce]"]').value = payload.nonce;
+				$form.querySelector('input[name*="' + namespace + '[deviceData]"]').value = payload.deviceData;
 				$form.removeEventListener('submit', formSubmit);
 				window.commerceBT.methodSelected = true;
 				if (window.commerceBT.callbacks.hasOwnProperty('onPaymentMethodReady')) {
